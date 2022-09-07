@@ -1,272 +1,67 @@
+#!/usr/bin/python3
 # this bot was made by u/hananelroe on reddit
-# GitHub link: https://github.com/hananelroe/muck-chains-stopper-bot
-import collections
-import warnings
-warnings.filterwarnings('ignore', '.*slow pure-python SequenceMatcher.*')
 import thefuzz.fuzz as fuzz
 import praw
 import unicodedata
-import random
-import sys
-from threading import Thread
-import datetime
-import pytz
-import schedule
-import json
-from colors import color
-import console
 
+print("\u001b[31;1m" + str(praw.__version__))
 
-# details about the bot to send after every comment
-credit = "\n______\n ^(I'm a bot that stops \"muck\" and \"wow that was really cool\" chains)\n\n" \
-         "[GitHub](https://github.com/hananelroe/muck-chains-stopper-bot)^([report an issue](https://github.com/hananelroe/muck-chains-stopper-bot/issues/new))\n\n" \
-         "^([visit my website](https://www.reddit.com/r/Damnthatsinteresting/comments/ovp6t1/never_gonna_give_you_up_by_rick_astley_remastered))"
+Muck_list = ["depression", "!depressionhelp", "depressed", "empty", "numb", "!help"]
+Blocked_users = []
 
-shut = "#**SHUT**"  # shut comment for m***
-thatWasntCool = "that was cool, but your chain isn\'t."
-bad_bot = "WHY?"  # WHY? comment for "bad bot"
-good_bot = "thanks! :)"  # thanks comment for "good bot"
+# initialize with appropriate values
+client_id = ""
+client_secret = ""
+username = ""
+password = ""
+user_agent = "u/hananelroe's and u/norecap_bot's comment chains breaker bot modified by u/pkuba208 to help people suffering from depression and derealization"
+comment_content = "100% Depression and derealization.
 
-consoleMSG = f"{color.PURPLE}console mode\n{color.RED}WARNING: the bot stops working when you are in the console mode." \
-             f" to make him work again, quit the console by typing \"quit\"{color.END}"
+I had the same thing and got out of it, but I don't know if it will come back. Eminem's "Rock Bottom" still has me crying, because I can relate to it and describes my previous state. Seriously go listen to it. Anyways here are some tips:
 
-fixed_comment = ""  # fixing comments to get better muck results
+Seek help. If you can't afford a therapist, call a helpline
 
-unwanted_characters = [" ", ",", ".", "\n", "\'", "!", "@"]  # the characters in this list will be ignored by the bot
+Try to search for new interests, no matter how hard it may be. It's worth it
 
-mucks_Counter = 0
-yesterday_Mucks = 0
-wowThatWasReallyCoolCount = 0
-yesterday_WowThatWasReallyCool = 0
-consoleMode = False
+Educate your relatives about depression
 
-preferencesFile = open("preferences.json", "r+")
-preferences = json.load(preferencesFile)
+Never lose hope. You'll get out of this shit. When I had depression I didn't seek help, because I didn't know, that I had it. I thought, that depression meant being sad all the time, when I couldn't feel anything and had the feeling of losing control of my life. I appeared functional from the outside, so nobody really knew. Eminem's songs saved me. This could be anything else for you. I was lucky enough to stumble across his songs and have relatives that love me. If you like, what I do, please say Good Bot and upvote this comment 
+This is a fork of a bot made by u/hananelroe. Official Github: https://github.com/hananelroe/muck-chains-stopper-bot "
+fixed_comment = ""
 
-class author:
-    def __init__(self):
-        self.name = ""
-
-class EmptyComment:  # Empty comment class for parent function
-    def __init__(self):
-        # fake attributes:
-        self.body = ""
-        self.author = author()
-        self.author.name = ""
-
-
-def parent(child_comment):  # gets comment's parent (aka the comment it replied to)
-    # and returns a fake empty comment if it didn't find one
-
-    parent_comment = EmptyComment()  # create empty object for the fake comment
-    parent_comment.author = EmptyComment()  # add empty object for name for the author of the fake comment
-    parent_comment.author.name = ""  # add the fake comment's author name
-    try:
-        if str(type(
-                child_comment.parent())) == "<class 'praw.models.reddit.comment.Comment'>":  # check if it's a comment
-            parent_comment = child_comment.parent()  # if it did find the comment, it will
-            # save it, otherwise it will raise error
-    finally:
-        return parent_comment  # at the end returns the same output as comment.parent()
-        # but it will return empty comment instead of any error
-
-
-def noglyph(s):  # removes any glyph from a character (ex. ý -> y, Ŕ -> R)
+def noglyph(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s)
                    if unicodedata.category(c) != 'Mn')
 
-def fixComment(comment):
-    fixed = comment.body.lower()
-    # removing unwanted characters:
-    for character in unwanted_characters:
-        fixed = fixed.replace(character, "")
-    # removing glyphs:
-    fixed = noglyph("".join(dict.fromkeys(fixed)))
-    return fixed
+while True:
+    # creating an authorized reddit instance
+    reddit = praw.Reddit(client_id=fe6KECX2HrLJI48lovQVpw,
+                         client_secret=gQeH7hRSjWIn-MEhfT2HJ3f70BdUtw,
+                         username=NiceManBot,
+                         password=PKC123!,
+                         user_agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36 Edg/105.0.1343.27)
 
-
-def printComment(comment, fixed_comment, authorName):
-    if authorName != preferences["username"]:
-        print(color.PURPLE, comment, color.BLUE, fixed_comment, color.END,  # prints comment, fixed comment,
-              f" \"muck\" similarity:",
-              color.RED, str(fuzz.ratio(fixed_comment, "muck")), "%", color.END,  # "muck" similarity,
-              " \"wow that was really cool\" similarity:",
-              color.RED, (fuzz.ratio(fixed_comment, "wothasrelyc")), "%", color.END,  # "wow that was really cool" similarity
-              f"\nu/{color.CYAN}{authorName}{color.END}\n")  # and author name
-
-
-def reply(comment, content, credit):  # replies with/without credit according to the chain's length
-    try:
-        # check if the comment have more than 4 parents:
-        comment.parent().parent().parent().parent()
-    except:
-        # if the comment does have more than 4 parents:
-        comment.reply(content + credit)
-    else:
-        comment.reply(content)  # else than comment bad_bot without credit
-
-
-def resetCounts():
-    global yesterday_Mucks, mucks_Counter, yesterday_WowThatWasReallyCool, wowThatWasReallyCoolCount
-    yesterday_Mucks = mucks_Counter
-    mucks_Counter = 0
-    yesterday_WowThatWasReallyCool = wowThatWasReallyCoolCount
-    wowThatWasReallyCoolCount = 0
-    print("resetting muck count...")
-
-
-def getUTCMidnight():
-    final = ""
-    local_tz = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
-    a = pytz.utc.localize(datetime.datetime(1, 1, 1, 0, 0)).astimezone(local_tz)
-
-    if a.hour < 10:
-        final = final + "0" + str(a.hour)
-    else:
-        final = a.hour
-    if a.minute < 10:
-        final = final + ":0" + str(a.minute)
-    else:
-        final = final + ":" + str(a.minute)
-    return final
-
-
-def savePreferences(file, data):
-    file.seek(0)  # <--- should reset file position to the beginning.
-    json.dump(data, file, indent=4)
-    file.truncate()  # remove remaining part
-
-
-def main():
-    global fixed_comment, mucks, mucks_Counter, yesterday_Mucks, consoleMode, preferences
-    if preferences["reduce comments"] == False:
-        print(f"{color.RED}{color.BOLD}comment reduction is off{color.END}")
-
-    # for every new comment:
-    for comment in subreddit.stream.comments(skip_existing=True):
-        if consoleMode:
-            break  # we shouldn't run the bot when using the console
-
-        fixed_comment = fixComment(comment)
-
-        # print comment details:
-        printComment(comment.body, fixed_comment, comment.author.name)
-
-        # skip the comment check if the commenter is the bot or the user is blocked:
-        if comment.author.name == preferences["username"]:
-            continue
-        if comment.author.name.lower() in preferences["blocked users"]:
-            print(f"{color.RED}USER BLOCKED{color.END}")
-            continue
-
-        # when someone mentions the bot:
-        if comment.body.lower() == f"u/{preferences['username'].lower()}":
-            print(f"{color.CYAN}someone mentioned me!{color.END}")
-            comment.reply(f"**you have summoned me to show you the state of this sub**\n\n"
-                          f"today I have counted **{mucks_Counter}** mucks and **{wowThatWasReallyCoolCount}** \"wow that was really cool\" chains.\n\n"
-                          f"yesterday I have counted **{yesterday_Mucks}** mucks and **{yesterday_WowThatWasReallyCool}** \"wow that was really cool\" chains.\n\n"
-                          f"^(I don't reply to all comments, but I do count both comments that are a part of a chain and comments that aren't, and the count resets every day.) \n\n"
-                          f"^(if you've noticed a problem or want to contribute to my code, [here is my GitHub page](https://github.com/hananelroe/muck-chains-stopper-bot))")
-
-        # if the comment replied to the bot:
-        if parent(comment).author.name == preferences["username"]:
-            if comment.body.lower() == "bad bot":
-                print(f"{color.GREEN} bad bot MATCH! replying...{color.END}\n")
-                reply(comment, bad_bot, credit)
-            elif comment.body.lower() == "good bot":
-                print(f"{color.GREEN}good bot MATCH! replying...{color.END}")
-                reply(comment, good_bot, credit)
-
-        # "wow that was really cool" chain detection:
-        elif fuzz.ratio(fixed_comment, "wothasrelyc") > 70:  # "wothasrelyc" is "wow that was really cool" after the comment processing
-            if fuzz.ratio(fixComment(parent(comment)), fixed_comment) > 80:  # only triggers if it's a part of a chain (parent comment needs to be similar)
-                if preferences["reduce comments"]:
-                    if random.randrange(1, 5) == 1:  # roughly 1 out of 5 comments:
-                        print(f"{color.RED}\"wow that was really cool\" chain DETECTED! {color.GREEN}replying...{color.END}")
-                        reply(comment, thatWasntCool, credit)
-                    else:
-                        print(f"{color.RED}\"wow that was really cool\" chain DETECTED, but not replying.{color.END}")
-                else:
-                    print(f"{color.RED}\"wow that was really cool\" chain DETECTED! {color.GREEN}replying...{color.END}")
-                    reply(comment, thatWasntCool, credit)
-
-        # muck detection:
-        else:
-            for item in preferences["muck list"]:
-                # if the comment is >74% "muck" and starts with "m"/"k":
-                if fuzz.ratio(fixed_comment, item) > 74 and fixed_comment[0] in "mk":
-                    if preferences["reduce comments"]:
-                        if random.randrange(1, 5) == 1:  # roughly 1 out of 5 comments:
-                            print(f"{color.GREEN}MUCK detected! replying...{color.END}\n")
-                            reply(comment, shut, credit)
-                            mucks_Counter += 1
-                        else:
-                            print(f"{color.RED}MUCK detected! not replying{color.END}\n")
-                        break
-                    else:
-                        print(f"{color.GREEN}MUCK detected! replying...{color.END}\n")
-                        reply(comment, shut, credit)
-                        mucks_Counter += 1
-                    break
-            continue
-
-
-def consoleFunc():
-    global consoleMode, preferencesFile
-    while True:
-        if input() == "console" and consoleMode == False:
-            print("\n" * 100)  # to clear all other outputs
-            print(consoleMSG)
-            console.preferences = preferences
-            consoleMode = True
-        if consoleMode:
-            while True:
-                command = input()
-                if command == "quit":
-                    console.preferences = preferences  # save changes like blocked users to memory
-                    savePreferences(preferencesFile, preferences)
-                    print(f"{color.PURPLE}quitting console{color.END}")
-                    consoleMode = False
-                    break
-                else:
-                    console.main(command)
-
-
-def dailyRoutine():
-    schedule.every().day.at(getUTCMidnight()).do(resetCounts, )
-    while True:
-        schedule.run_pending()
-
-
-if __name__ == '__main__':
-    # creating an authorized reddit instance from the given data
-    reddit = praw.Reddit(client_id=preferences["client ID"],
-                         client_secret=preferences["client secret"],
-                         username=preferences["username"],
-                         password=preferences["password"],
-                         user_agent=preferences["user agent"])
-
-    # selects the subreddit to read the comments from
-    subreddit = reddit.subreddit(preferences["subreddit name"])
-    print(f"{color.GREEN}online{color.END}")
+    subreddit = reddit.subreddit("mentalhealth")
+    print("\u001b[31;1monline\u001b[0m")
 
     try:
-        mainThread = Thread(target=main)
-        routineThread = Thread(target=dailyRoutine)
-        consoleTread = Thread(target=consoleFunc)  # the console doesn't really work, I might fix it in the future
+        for comment in subreddit.stream.comments(skip_existing=True):
+            fixed_comment = noglyph("".join(dict.fromkeys(comment.body.lower())))
+            print("\u001b[35;1m" + comment.body + "\u001b[34;1m\t" + com + " \u001b[0m" + str(fuzz.ratio(com, "muck") + "%"))
+            print("u/\u001b[36;1m" + str(comment.author) + "\u001b[0m\n")
 
-        mainThread.start()
-        routineThread.start()
-        consoleTread.start()
-
+            if comment.parent().author.name == username and comment.body.lower() == "bad bot":
+                comment.reply(why)
+                break
+            else:
+                for item in Muck_list:
+                    if fuzz.ratio(fixed_comment, item) > 80:
+                        if str(comment.author) not in user:
+                            comment.reply(comment_content)
+                            break
     except KeyboardInterrupt:  # Ctrl-C - stop
-        savePreferences(preferencesFile, preferences)
-        preferencesFile.close()
-        print(f"{color.RED}Bye!{color.END}")
-
+        print("\u001b[31;1mBye!\u001b[0m")
+        break
     except Exception as error:  # Any exception
-        savePreferences(preferencesFile, preferences)
-        preferencesFile.close()
-        print(
-            f"{color.RED}Error in line {sys.exc_info()[-1].tb_lineno}: {error}")  # prints error line and the error itself
-        print(f"Trying to restart...{color.END}")
+        print(f"\u001b[31;1mError: {error}")
+        print("Trying to restart...\u001b[0m")
